@@ -1,0 +1,1 @@
+docker build -t hexwer:jenkins_lts .

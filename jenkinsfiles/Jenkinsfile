@@ -1,0 +1,48 @@
+pipeline {
+    agent any
+    stages {
+        stage('Pull') {
+            steps {
+                checkout([
+                    $class: 'GitSCM', 
+                    branches: [[name: '*/master']], 
+                    doGenerateSubmoduleConfigurations: false, 
+                    extensions: [[$class: 'CleanCheckout']], 
+                    submoduleCfg: [], 
+                    userRemoteConfigs: [
+                        [
+                            credentialsId: 'gitAccess', 
+                            url: 'https://github.com/mgolokhov/dodroid'
+                        ]
+                    ]
+                ])
+            }
+        }
+        stage('Assemble') {
+            steps {
+                sh 'gradle assemble'
+                // Archive the APKs so that they can be downloaded from Jenkins
+                archiveArtifacts '**/*.apk'
+            }
+        }
+        stage('Lint') {
+            steps {
+                sh 'gradle lint ktlint detekt'
+                androidLint pattern: '**/lint-results-*.xml'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh 'gradle test'
+                // Analyse the test results and update the build result as appropriate
+                junit '**/TEST-*.xml'
+            }
+        }
+    }
+    post {
+        failure {
+          // Notify developer team of the failure
+          mail to: 'hexwer@gmail.com', subject: 'Oops!', body: "Build ${env.BUILD_NUMBER} failed; ${env.BUILD_URL}"
+        }
+  }
+}
